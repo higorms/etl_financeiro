@@ -14,11 +14,11 @@ def stock_data(api_key, symbols):
             for date, data in time_series.items():
                 all_data.append({
                     'symbol': symbol,
-                    'date': date,
-                    'open_price': data['1. open'],
-                    'high_price': data['2. high'],
-                    'low_price': data['3. low'],
-                    'close_price': data['4. close'],
+                    'data': date,
+                    'abertura': data['1. open'],
+                    'alta': data['2. high'],
+                    'baixa': data['3. low'],
+                    'fechamento': data['4. close'],
                 })
         
         # Respeitar os limites de taxa da API
@@ -73,6 +73,37 @@ def create_table_if_not_exists(connection, table_name):
             alta NUMBER,
             baixa NUMBER,
             fechamento NUMBER
+        )
+        """)
+        print(f"Tabela '{table_name}' criada com sucesso.")
+    else:
+        print(f"Tabela '{table_name}' já existe.")
+
+    cursor.close()
+    connection.commit()
+
+def create_table_if_not_exists_divid(connection, table_name):
+    cursor = connection.cursor()
+
+    # Verifica se a tabela já existe
+    cursor.execute(f"""
+    SELECT COUNT(*)
+    FROM user_tables
+    WHERE table_name = UPPER('{table_name}')
+    """)
+
+    exists = cursor.fetchone()[0]
+
+    # Cria a tabela se ela não existir
+    if exists == 0:
+        cursor.execute(f"""
+        CREATE TABLE {table_name} (
+            symbol VARCHAR2(10),
+            ex_dividend_date DATE,
+            declaration_date DATE,
+            record_date DATE,
+            payment_date DATE,
+            amount NUMBER
         )
         """)
         print(f"Tabela '{table_name}' criada com sucesso.")

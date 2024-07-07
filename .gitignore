@@ -3,3 +3,4 @@ output.csv
 etl_cloud/
 rabiscos.py
 codes/__pycache__
+dash_finance.pbix
