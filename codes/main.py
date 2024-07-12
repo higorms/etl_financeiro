@@ -1,5 +1,5 @@
 # importando funções úteis
-from funcs import stock_data, dividendos
+from funcs import stock_data, dividendos, symbol_sa
 from funcs import create_table_if_not_exists, create_table_if_not_exists_divid
 import requests
 import pandas as pd
@@ -15,11 +15,11 @@ arquivo = open('sensivel/simbolos.txt', 'r')
 syms = arquivo.read()
 arquivo.close()
 symbols = syms.split()
+symb_sa = symbol_sa()
 
 data = stock_data(api_key, symbols) # Função que acessa, extrai e armazena os dados (JSON) desejados da API da Alpha Vantage
 
 df = pd.DataFrame(data) # Tranforma os dados aramzenados da API em um dataframe do pandas
-print(df)
 
 # Fazendo leitura de um arquivo .txt que contem dados do banco de dados autônomo da Oracle
 arquivo = open('sensivel/db.txt', 'r')
@@ -70,38 +70,31 @@ for record in df.itertuples(index=False):
 create_table_if_not_exists_divid(connection = conn, table_name = 'dividendos') # Função que cria uma tabela chamada Dividendos dentro do banco de dados da Oracle, caso ela ainda não exista
 
 # Extrai os dados da API de dividendos e armazena em um dataframe
-data_div = dividendos(api_key, symbols)
-df_div = pd.DataFrame(data_div)
-print(df_div)
+data_div = dividendos(symbols)
 
 # Laço que transfere os dados do dataframe para a tabela de dividendos no banco de dados. Os dados que já existem no banco são ignorados, evitando informações duplicadas dentro do banco
-for record in df_div.itertuples(index=False):
+for record in data_div.itertuples(index=False):
         cursor.execute("""
         MERGE INTO dividendos dst
         USING (
-            SELECT :symbol AS symbol, TO_DATE(:ex_dividend_date, 'YYYY-MM-DD') AS ex_dividend_date, 
-            TO_DATE(:declaration_date, 'YYYY-MM-DD') AS declaration_date, 
-            TO_DATE(:record_date, 'YYYY-MM-DD') AS record_date, TO_DATE(:payment_date, 'YYYY-MM-DD') AS payment_date, 
-            :amount AS amount FROM dual) src
-        ON (dst.symbol = src.symbol AND dst.payment_date = src.payment_date)
+            SELECT :symbol AS symbol, TO_DATE(:Data_COM, 'DD/MM/YYYY') AS Data_COM, 
+            TO_DATE(:Data_pay, 'DD/MM/YYYY') AS Data_pay, 
+            :Valor AS Valor FROM dual) src
+        ON (dst.symbol = src.symbol AND dst.Data_COM = src.Data_COM)
         WHEN MATCHED THEN 
-            UPDATE SET dst.ex_dividend_date = src.ex_dividend_date, 
-                       dst.declaration_date = src.declaration_date, 
-                       dst.record_date = src.record_date, 
-                       dst.amount = src.amount 
+            UPDATE SET dst.Data_pay = src.Data_pay, 
+                       dst.Valor = src.Valor 
         WHEN NOT MATCHED THEN
-            INSERT (symbol, ex_dividend_date, declaration_date, record_date, payment_date, amount)
-            VALUES (src.symbol, src.ex_dividend_date, src.declaration_date, src.record_date, src.payment_date, src.amount)
+            INSERT (symbol, Data_COM, Data_pay, Valor)
+            VALUES (src.symbol, src.Data_COM, src.Data_pay, src.Valor)
         """, {
             'symbol': record.symbol, 
-            'ex_dividend_date': record.ex_dividend_date, 
-            'declaration_date': record.declaration_date, 
-            'record_date': record.record_date, 
-            'payment_date': record.payment_date, 
-            'amount': record.amount
+            'Data_COM': record.Data_COM, 
+            'Data_pay': record.Pagamento, 
+            'Valor': record.Valor
         })
 
-        conn.commit() # confirma e grava as momdificações feitas no banco de dados.
+        conn.commit() # confirma e grava as modificações feitas no banco de dados.
 cursor.close()
 
 print("Dados gravados com sucesso na nuvem.")
